@@ -1,5 +1,8 @@
-from bitcoin_analyzer import BitcoinAnalyzer
+from src.analyzer import BitcoinAnalyzer
 
-if __name__ == "__main__":
+def main():
     analyzer = BitcoinAnalyzer()
     analyzer.run_analysis()
+
+if __name__ == "__main__":
+    main()
