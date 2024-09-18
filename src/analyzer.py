@@ -1,6 +1,6 @@
-from project_root.src.data_fetcher import DataFetcher
-from project_root.src.indicators import Indicators
-from project_root.src.recommendation_engine import RecommendationEngine
+from .data_fetcher import DataFetcher
+from .indicators import Indicators
+from .recommendation_engine import RecommendationEngine
 import logging
 import numpy as np
 
@@ -40,24 +40,32 @@ class BitcoinAnalyzer:
         # Get recommendations
         real_time_recommendation = self.recommendation_engine.get_recommendation(
             real_time_price, rsi, macd, signal_macd, fib_levels, senkou_span_a, senkou_span_b,
-            ema, adx, stochastic, upper_band, lower_band, "real-time"
+            ema, adx, stochastic, upper_band, lower_band, "real-time", self.data_fetcher.prices
         )
         daily_recommendation = self.recommendation_engine.get_recommendation(
             opening_price, rsi, macd, signal_macd, fib_levels, senkou_span_a, senkou_span_b,
-            ema, adx, stochastic, upper_band, lower_band, "daily"
+            ema, adx, stochastic, upper_band, lower_band, "daily", self.data_fetcher.prices
+        )
+        weekly_recommendation = self.recommendation_engine.get_recommendation(
+            opening_price, rsi, macd, signal_macd, fib_levels, senkou_span_a, senkou_span_b,
+            ema, adx, stochastic, upper_band, lower_band, "weekly", self.data_fetcher.prices
+        )
+        monthly_recommendation = self.recommendation_engine.get_recommendation(
+            opening_price, rsi, macd, signal_macd, fib_levels, senkou_span_a, senkou_span_b,
+            ema, adx, stochastic, upper_band, lower_band, "monthly", self.data_fetcher.prices
         )
 
         # Print results
         self._print_analysis_results(
             real_time_price, opening_price, predicted_price, volume_ma, percentage_change,
             volatility, rsi, ema, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b,
-            real_time_recommendation, daily_recommendation
+            real_time_recommendation, daily_recommendation, weekly_recommendation, monthly_recommendation
         )
 
     def _print_analysis_results(self, real_time_price, opening_price, predicted_price, volume_ma,
                                 percentage_change, volatility, rsi, ema, lower_band, upper_band,
                                 fib_levels, senkou_span_a, senkou_span_b, real_time_recommendation,
-                                daily_recommendation):
+                                daily_recommendation, weekly_recommendation, monthly_recommendation):
         print(f"{'-'*70}\nBitcoin Analysis Results\n{'-'*70}")
         print(f"Real-time BTC Price (USD): ${real_time_price:.2f}")
         print(f"Opening BTC Price (USD): ${opening_price:.2f}")
@@ -82,5 +90,7 @@ class BitcoinAnalyzer:
         print(f"Support (Senkou Span A): ${senkou_span_a:.2f}")
         print(f"Resistance (Senkou Span B): ${senkou_span_b:.2f}")
         print(f"Current Trend: {'Bullish' if real_time_price > senkou_span_b else 'Bearish' if real_time_price < senkou_span_a else 'Neutral'}")
-        print(f"{'-'*70}\nReal-time Recommendation: {real_time_recommendation}\n{'-'*70}")
-        print(f"{'-'*70}\nDaily Recommendation: {daily_recommendation}\n{'-'*70}")
+        print(f"{'-'*70}\nReal-time Recommendation:\n{real_time_recommendation}\n{'-'*70}")
+        print(f"{'-'*70}\nDaily Recommendation:\n{daily_recommendation}\n{'-'*70}")
+        print(f"{'-'*70}\nWeekly Recommendation:\n{weekly_recommendation}\n{'-'*70}")
+        print(f"{'-'*70}\nMonthly Recommendation:\n{monthly_recommendation}\n{'-'*70}")
