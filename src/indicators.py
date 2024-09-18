@@ -92,7 +92,7 @@ class Indicators:
         ema_long = self.calculate_ema(long)
         macd = ema_short - ema_long
         signal_line = np.convolve(macd, np.ones(signal), 'valid') / signal
-        return macd[-1], signal_line[-1]
+        return macd, signal_line
 
     def calculate_adx(self, period=14):
         if len(self.prices) < 2 * period:
@@ -115,7 +115,7 @@ class Indicators:
         dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
         adx = np.convolve(dx, np.ones(period), 'valid') / period
         
-        return adx[-1]
+        return adx[-1], plus_di[-1], minus_di[-1]
 
     def calculate_stochastic(self, period=14, k_period=3, d_period=3):
         if len(self.prices) < period + k_period + d_period:
@@ -139,3 +139,66 @@ class Indicators:
         senkou_span_b = (np.max(self.prices[-senkou_period:]) + np.min(self.prices[-senkou_period:])) / 2
         
         return tenkan_sen, kijun_sen, senkou_span_a, senkou_span_b
+
+    def analyze_volume(self, period=20):
+        volume_ma = np.mean(self.volumes[-period:])
+        current_volume = self.volumes[-1]
+        volume_change = (current_volume - volume_ma) / volume_ma * 100
+        return volume_change
+
+    def identify_divergence(self, indicator, period=14):
+        price_change = self.prices[-1] - self.prices[-period]
+        indicator_change = indicator[-1] - indicator[-period]
+        
+        if price_change > 0 and indicator_change < 0:
+            return "Bearish divergence detected"
+        elif price_change < 0 and indicator_change > 0:
+            return "Bullish divergence detected"
+        else:
+            return "No divergence detected"
+
+    def calculate_on_balance_volume(self):
+        obv = np.zeros(len(self.prices))
+        obv[0] = self.volumes[0]
+        for i in range(1, len(self.prices)):
+            if self.prices[i] > self.prices[i-1]:
+                obv[i] = obv[i-1] + self.volumes[i]
+            elif self.prices[i] < self.prices[i-1]:
+                obv[i] = obv[i-1] - self.volumes[i]
+            else:
+                obv[i] = obv[i-1]
+        return obv
+
+    def calculate_money_flow_index(self, period=14):
+        typical_price = (self.prices + np.roll(self.prices, 1) + np.roll(self.prices, 2)) / 3
+        raw_money_flow = typical_price * self.volumes
+    
+        positive_flow = np.where(typical_price > np.roll(typical_price, 1), raw_money_flow, 0)
+        negative_flow = np.where(typical_price < np.roll(typical_price, 1), raw_money_flow, 0)
+    
+        positive_mf = np.sum(positive_flow[-period:])
+        negative_mf = np.sum(negative_flow[-period:])
+    
+        if negative_mf == 0:
+            return 100  # If negative money flow is zero, MFI is 100
+    
+        mfi = 100 - (100 / (1 + positive_mf / negative_mf))
+        return mfi
+
+    def calculate_pivot_points(self):
+        if len(self.prices) < 2:
+            raise ValueError("Insufficient price data for Pivot Points calculation")
+        
+        high = max(self.prices[-2:])
+        low = min(self.prices[-2:])
+        close = self.prices[-1]
+        
+        pivot = (high + low + close) / 3
+        r1 = (2 * pivot) - low
+        s1 = (2 * pivot) - high
+        r2 = pivot + (high - low)
+        s2 = pivot - (high - low)
+        r3 = high + 2 * (pivot - low)
+        s3 = low - 2 * (high - pivot)
+        
+        return [pivot, r1, s1, r2, s2, r3, s3]

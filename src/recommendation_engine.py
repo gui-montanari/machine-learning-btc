@@ -2,28 +2,46 @@ import numpy as np
 from typing import List, Tuple
 
 class RecommendationEngine:
-    def get_recommendation(self, price: float, rsi: List[float], macd: float, signal_macd: float, 
-                           fib_levels: List[float], senkou_span_a: float, senkou_span_b: float,
-                           ema: List[float], adx: float, stochastic: float, upper_band: float, 
-                           lower_band: float, timeframe: str, historical_prices: List[float]) -> str:
+    def get_recommendation(self, price: float, rsi: List[float], macd: List[float], signal_macd: List[float], 
+                        fib_levels: List[float], senkou_span_a: float, senkou_span_b: float,
+                        ema: List[float], adx: float, di_plus: float, di_minus: float, stochastic: float, 
+                        upper_band: float, lower_band: float, timeframe: str, historical_prices: List[float],
+                        historical_volumes: List[float], pivot_points: List[float]) -> str:
         buy_signals, sell_signals = self._calculate_signals(
             price, rsi, macd, signal_macd, fib_levels, senkou_span_a, senkou_span_b,
-            ema, adx, stochastic, upper_band, lower_band
+            ema, adx, di_plus, di_minus, stochastic, upper_band, lower_band
         )
         
-        support, resistance = self._identify_support_resistance(price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b, historical_prices, timeframe)
+        support, resistance = self._identify_support_resistance(price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b, historical_prices, timeframe, pivot_points)
         suggested_buy_price, buy_reason = self._calculate_suggested_buy_price(price, support, resistance)
         suggested_sell_price, sell_reason = self._calculate_suggested_sell_price(price, support, resistance)
         profit_target, profit_reason = self._calculate_profit_target(suggested_buy_price, resistance)
+        stop_loss, stop_loss_reason = self._calculate_stop_loss(suggested_buy_price, support)
         
-        trend_analysis = self._analyze_trend(historical_prices, timeframe)
+        trend_analysis = self._analyze_trend(historical_prices, timeframe, adx, di_plus, di_minus)
+        
+        # Calculate period-specific indicators
+        if timeframe == "real-time" or timeframe == "daily":
+            period = 1
+        elif timeframe == "weekly":
+            period = 7
+        elif timeframe == "monthly":
+            period = 30
+        else:
+            period = 1
+
+        volume_change = self._calculate_volume_change(historical_volumes, period)
+        rsi_divergence = self._identify_divergence(historical_prices, rsi, period)
+        macd_divergence = self._identify_divergence(historical_prices, macd, period)
+        mfi = self._calculate_mfi(historical_prices, historical_volumes, period)
         
         return self._generate_recommendation(buy_signals, sell_signals, suggested_buy_price, suggested_sell_price,
-                                             buy_reason, sell_reason, price, timeframe, support, resistance, 
-                                             trend_analysis, profit_target, profit_reason)
+                                            buy_reason, sell_reason, price, timeframe, support, resistance, 
+                                            trend_analysis, profit_target, profit_reason, stop_loss, stop_loss_reason,
+                                            volume_change, rsi_divergence, macd_divergence, mfi)
 
     def _calculate_signals(self, price, rsi, macd, signal_macd, fib_levels, senkou_span_a, senkou_span_b,
-                           ema, adx, stochastic, upper_band, lower_band):
+                           ema, adx, di_plus, di_minus, stochastic, upper_band, lower_band):
         buy_signals = 0
         sell_signals = 0
         
@@ -38,13 +56,13 @@ class RecommendationEngine:
             sell_signals += 1
         
         # MACD
-        if macd > signal_macd:
+        if macd[-1] > signal_macd[-1]:
             buy_signals += 1
-            if macd > 0:
+            if macd[-1] > 0:
                 buy_signals += 1
         else:
             sell_signals += 1
-            if macd < 0:
+            if macd[-1] < 0:
                 sell_signals += 1
         
         # Fibonacci Levels
@@ -73,9 +91,9 @@ class RecommendationEngine:
         else:
             sell_signals += 1
         
-        # ADX (trend strength)
-        if adx > 25:  # Strong trend
-            if buy_signals > sell_signals:
+        # ADX
+        if adx > 25:
+            if di_plus > di_minus:
                 buy_signals += 2
             else:
                 sell_signals += 2
@@ -98,35 +116,25 @@ class RecommendationEngine:
         
         return buy_signals, sell_signals
 
-    def _identify_support_resistance(self, price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b, historical_prices, timeframe):
+    def _identify_support_resistance(self, price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b, historical_prices, timeframe, pivot_points):
+        pivot, r1, s1, r2, s2, r3, s3 = pivot_points
+        
         if timeframe == "real-time" or timeframe == "daily":
-            return self._identify_short_term_support_resistance(price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b)
+            support_levels = [lower_band, fib_levels[0], senkou_span_a, s1, s2]
+            resistance_levels = [upper_band, fib_levels[2], senkou_span_b, r1, r2]
         elif timeframe == "weekly":
-            return self._identify_weekly_support_resistance(historical_prices)
+            support_levels = [min(historical_prices[-28::7]), s1, s2]  # Last 4 weeks of data
+            resistance_levels = [max(historical_prices[-28::7]), r1, r2]
         elif timeframe == "monthly":
-            return self._identify_monthly_support_resistance(historical_prices)
+            support_levels = [min(historical_prices[-90::30]), s2, s3]  # Last 3 months of data
+            resistance_levels = [max(historical_prices[-90::30]), r2, r3]
         else:
-            return self._identify_short_term_support_resistance(price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b)
-
-    def _identify_short_term_support_resistance(self, price, lower_band, upper_band, fib_levels, senkou_span_a, senkou_span_b):
-        support_levels = [lower_band, fib_levels[0], senkou_span_a]  # 23.6% Fib level and Senkou Span A
-        resistance_levels = [upper_band, fib_levels[2], senkou_span_b]  # 61.8% Fib level and Senkou Span B
+            support_levels = [lower_band, fib_levels[0], senkou_span_a, s1, s2]
+            resistance_levels = [upper_band, fib_levels[2], senkou_span_b, r1, r2]
         
         support = max([level for level in support_levels if level < price], default=min(support_levels))
         resistance = min([level for level in resistance_levels if level > price], default=max(resistance_levels))
         
-        return support, resistance
-
-    def _identify_weekly_support_resistance(self, historical_prices):
-        weekly_prices = historical_prices[-28::7]  # Last 4 weeks of data
-        support = min(weekly_prices)
-        resistance = max(weekly_prices)
-        return support, resistance
-
-    def _identify_monthly_support_resistance(self, historical_prices):
-        monthly_prices = historical_prices[-90::30]  # Last 3 months of data
-        support = min(monthly_prices)
-        resistance = max(monthly_prices)
         return support, resistance
 
     def _calculate_suggested_buy_price(self, price, support, resistance):
@@ -177,67 +185,144 @@ class RecommendationEngine:
         
         return profit_target, reason
 
-    def _analyze_trend(self, historical_prices: List[float], timeframe: str) -> str:
+    def _calculate_stop_loss(self, buy_price, support):
+        stop_loss_percentage = 0.05  # 5% stop loss
+        stop_loss = buy_price * (1 - stop_loss_percentage)
+        
+        if stop_loss < support:
+            stop_loss = support
+            reason = f"The stop loss is set at the support level (${stop_loss:.2f}) to minimize potential losses while respecting market structure."
+        else:
+            reason = f"The stop loss is set at {stop_loss_percentage*100}% below the suggested buy price, aiming for a balanced risk-reward ratio."
+        
+        return stop_loss, reason
+
+    def _analyze_trend(self, historical_prices: List[float], timeframe: str, adx: float, di_plus: float, di_minus: float) -> str:
         if timeframe == "real-time" or timeframe == "daily":
-            return self._analyze_short_term_trend(historical_prices)
+            return self._analyze_short_term_trend(historical_prices, adx, di_plus, di_minus)
         elif timeframe == "weekly":
-            return self._analyze_weekly_trend(historical_prices)
+            return self._analyze_weekly_trend(historical_prices, adx, di_plus, di_minus)
         elif timeframe == "monthly":
-            return self._analyze_monthly_trend(historical_prices)
+            return self._analyze_monthly_trend(historical_prices, adx, di_plus, di_minus)
         else:
             return "Unknown timeframe for trend analysis."
 
-    def _analyze_short_term_trend(self, prices: List[float]) -> str:
+    def _analyze_short_term_trend(self, prices: List[float], adx: float, di_plus: float, di_minus: float) -> str:
         short_ma = np.mean(prices[-7:])
         long_ma = np.mean(prices[-30:])
         current_price = prices[-1]
         
+        trend = ""
         if current_price > short_ma > long_ma:
-            return "The short-term trend is bullish, with prices above both short and long-term moving averages."
+            trend = "The short-term trend is bullish, with prices above both short and long-term moving averages."
         elif current_price < short_ma < long_ma:
-            return "The short-term trend is bearish, with prices below both short and long-term moving averages."
+            trend = "The short-term trend is bearish, with prices below both short and long-term moving averages."
         elif short_ma > long_ma:
-            return "The short-term trend is potentially bullish, with the short-term moving average above the long-term moving average."
+            trend = "The short-term trend is potentially bullish, with the short-term moving average above the long-term moving average."
         else:
-            return "The short-term trend is potentially bearish, with the short-term moving average below the long-term moving average."
+            trend = "The short-term trend is potentially bearish, with the short-term moving average below the long-term moving average."
+        
+        if adx > 25:
+            if di_plus > di_minus:
+                trend += " The trend is strong and bullish according to ADX."
+            else:
+                trend += " The trend is strong and bearish according to ADX."
+        else:
+            trend += " The trend is weak according to ADX."
+        
+        return trend
 
-    def _analyze_weekly_trend(self, prices: List[float]) -> str:
+    def _analyze_weekly_trend(self, prices: List[float], adx: float, di_plus: float, di_minus: float) -> str:
         weekly_returns = [(prices[i] - prices[i-7])/prices[i-7] for i in range(7, len(prices), 7)]
         avg_weekly_return = np.mean(weekly_returns)
         
+        trend = ""
         if avg_weekly_return > 0.05:
-            return "The weekly trend is strongly bullish, with an average weekly return above 5%."
+            trend = "The weekly trend is strongly bullish, with an average weekly return above 5%."
         elif avg_weekly_return > 0.02:
-            return "The weekly trend is moderately bullish, with an average weekly return between 2% and 5%."
+            trend = "The weekly trend is moderately bullish, with an average weekly return between 2% and 5%."
         elif avg_weekly_return > 0:
-            return "The weekly trend is slightly bullish, with a positive average weekly return."
+            trend = "The weekly trend is slightly bullish, with a positive average weekly return."
         elif avg_weekly_return > -0.02:
-            return "The weekly trend is slightly bearish, with a small negative average weekly return."
+            trend = "The weekly trend is slightly bearish, with a small negative average weekly return."
         elif avg_weekly_return > -0.05:
-            return "The weekly trend is moderately bearish, with an average weekly return between -2% and -5%."
+            trend = "The weekly trend is moderately bearish, with an average weekly return between -2% and -5%."
         else:
-            return "The weekly trend is strongly bearish, with an average weekly return below -5%."
+            trend = "The weekly trend is strongly bearish, with an average weekly return below -5%."
+        
+        if adx > 25:
+            if di_plus > di_minus:
+                trend += " The trend is strong and bullish according to ADX."
+            else:
+                trend += " The trend is strong and bearish according to ADX."
+        else:
+            trend += " The trend is weak according to ADX."
+        
+        return trend
 
-    def _analyze_monthly_trend(self, prices: List[float]) -> str:
+    def _analyze_monthly_trend(self, prices: List[float], adx: float, di_plus: float, di_minus: float) -> str:
         monthly_returns = [(prices[i] - prices[i-30])/prices[i-30] for i in range(30, len(prices), 30)]
         avg_monthly_return = np.mean(monthly_returns)
         
+        trend = ""
         if avg_monthly_return > 0.15:
-            return "The monthly trend is strongly bullish, with an average monthly return above 15%."
+            trend = "The monthly trend is strongly bullish, with an average monthly return above 15%."
         elif avg_monthly_return > 0.07:
-            return "The monthly trend is moderately bullish, with an average monthly return between 7% and 15%."
+            trend = "The monthly trend is moderately bullish, with an average monthly return between 7% and 15%."
         elif avg_monthly_return > 0:
-            return "The monthly trend is slightly bullish, with a positive average monthly return."
+            trend = "The monthly trend is slightly bullish, with a positive average monthly return."
         elif avg_monthly_return > -0.07:
-            return "The monthly trend is slightly bearish, with a small negative average monthly return."
+            trend = "The monthly trend is slightly bearish, with a small negative average monthly return."
         elif avg_monthly_return > -0.15:
-            return "The monthly trend is moderately bearish, with an average monthly return between -7% and -15%."
+            trend = "The monthly trend is moderately bearish, with an average monthly return between -7% and -15%."
         else:
-            return "The monthly trend is strongly bearish, with an average monthly return below -15%."
+            trend = "The monthly trend is strongly bearish, with an average monthly return below -15%."
+        
+        if adx > 25:
+            if di_plus > di_minus:
+                trend += " The trend is strong and bullish according to ADX."
+            else:
+                trend += " The trend is strong and bearish according to ADX."
+        else:
+            trend += " The trend is weak according to ADX."
+        
+        return trend
+
+    def _calculate_volume_change(self, volumes: List[float], period: int) -> float:
+        if len(volumes) < period + 1:
+            return 0
+        current_volume = volumes[-1]
+        previous_volume = volumes[-period-1]
+        return ((current_volume - previous_volume) / previous_volume) * 100
+
+    def _identify_divergence(self, prices: List[float], indicator: List[float], period: int) -> str:
+        if len(prices) < period + 1 or len(indicator) < period + 1:
+            return "Insufficient data for divergence analysis"
+        price_change = prices[-1] - prices[-period-1]
+        indicator_change = indicator[-1] - indicator[-period-1]
+        if price_change > 0 and indicator_change < 0:
+            return "Bearish divergence detected"
+        elif price_change < 0 and indicator_change > 0:
+            return "Bullish divergence detected"
+        else:
+            return "No divergence detected"
+
+    def _calculate_mfi(self, prices: List[float], volumes: List[float], period: int) -> float:
+        if len(prices) < period + 1 or len(volumes) < period + 1:
+            return 50  # Return neutral MFI if insufficient data
+        typical_prices = [(prices[i] + prices[i-1] + prices[i-2]) / 3 for i in range(2, len(prices))]
+        raw_money_flow = [tp * volumes[i+2] for i, tp in enumerate(typical_prices)]
+        positive_flow = sum(mf for mf, tp, prev_tp in zip(raw_money_flow[-period:], typical_prices[-period:], typical_prices[-period-1:]) if tp > prev_tp)
+        negative_flow = sum(mf for mf, tp, prev_tp in zip(raw_money_flow[-period:], typical_prices[-period:], typical_prices[-period-1:]) if tp < prev_tp)
+        if negative_flow == 0:
+            return 100
+        mfi = 100 - (100 / (1 + positive_flow / negative_flow))
+        return mfi
 
     def _generate_recommendation(self, buy_signals, sell_signals, suggested_buy_price, suggested_sell_price,
                                  buy_reason, sell_reason, price, timeframe, support, resistance, 
-                                 trend_analysis, profit_target, profit_reason):
+                                 trend_analysis, profit_target, profit_reason, stop_loss, stop_loss_reason,
+                                 volume_change, rsi_divergence, macd_divergence, mfi):
         total_signals = buy_signals + sell_signals
         
         timeframe_str = "current moment" if timeframe == "real-time" else timeframe
@@ -270,9 +355,17 @@ class RecommendationEngine:
         recommendation += f"Reason: {buy_reason}\n"
         recommendation += f"Profit target: ${profit_target:.2f}\n"
         recommendation += f"Profit target reason: {profit_reason}\n"
+        recommendation += f"Stop loss: ${stop_loss:.2f}\n"
+        recommendation += f"Stop loss reason: {stop_loss_reason}\n"
         
         recommendation += f"\nSell consideration:\n"
         recommendation += f"Suggested sell near: ${suggested_sell_price:.2f}\n"
         recommendation += f"Reason: {sell_reason}\n"
+
+        recommendation += f"\nAdditional Indicators:\n"
+        recommendation += f"Volume Change: {volume_change:.2f}%\n"
+        recommendation += f"RSI Divergence: {rsi_divergence}\n"
+        recommendation += f"MACD Divergence: {macd_divergence}\n"
+        recommendation += f"Money Flow Index: {mfi:.2f}\n"
 
         return recommendation
