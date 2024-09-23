@@ -170,19 +170,32 @@ class Indicators:
         return obv
 
     def calculate_money_flow_index(self, period=14):
-        typical_price = (self.prices + np.roll(self.prices, 1) + np.roll(self.prices, 2)) / 3
+        if len(self.prices) < period + 1 or len(self.volumes) < period + 1:
+            return None
+
+        high = np.roll(self.prices, 1)
+        low = np.roll(self.prices, 2)
+        close = self.prices
+        typical_price = (high + low + close) / 3
+
         raw_money_flow = typical_price * self.volumes
-    
+
         positive_flow = np.where(typical_price > np.roll(typical_price, 1), raw_money_flow, 0)
         negative_flow = np.where(typical_price < np.roll(typical_price, 1), raw_money_flow, 0)
-    
-        positive_mf = np.sum(positive_flow[-period:])
-        negative_mf = np.sum(negative_flow[-period:])
-    
-        if negative_mf == 0:
-            return 100  # If negative money flow is zero, MFI is 100
-    
-        mfi = 100 - (100 / (1 + positive_mf / negative_mf))
+
+        positive_mf = []
+        negative_mf = []
+
+        for i in range(period, len(self.prices)):
+            positive_mf.append(np.sum(positive_flow[i-period+1:i+1]))
+            negative_mf.append(np.sum(negative_flow[i-period+1:i+1]))
+
+        positive_mf = np.array(positive_mf)
+        negative_mf = np.array(negative_mf)
+
+        mfr = np.where(negative_mf != 0, positive_mf / negative_mf, 100)  # Handle division by zero
+        mfi = 100 - (100 / (1 + mfr))
+
         return mfi
 
     def calculate_pivot_points(self):

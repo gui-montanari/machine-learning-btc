@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple
+from typing import List
 
 class RecommendationEngine:
     def get_recommendation(self, price: float, rsi: List[float], macd: List[float], signal_macd: List[float], 

@@ -1,62 +1,65 @@
 # Bitcoin Analyzer
 
-## Descrição
-O Bitcoin Analyzer é uma ferramenta de análise técnica para o Bitcoin, fornecendo recomendações de compra/venda baseadas em múltiplos indicadores técnicos. O projeto oferece análises tanto para o momento atual quanto para o dia, considerando diversos fatores do mercado.
+## Description
 
-## Características
-- Análise em tempo real do preço do Bitcoin
-- Cálculo de múltiplos indicadores técnicos (RSI, MACD, Bandas de Bollinger, etc.)
-- Recomendações de compra/venda com justificativas detalhadas
-- Sugestões de preços para compra e venda
-- Análise de tendências de curto e médio prazo
+Bitcoin Analyzer is a technical analysis tool for Bitcoin, providing buy/sell recommendations based on multiple technical indicators. The project offers analyses for both the current moment and the day, considering various market factors.
 
-## Requisitos
+## Features
+
+- Real-time analysis of Bitcoin price
+- Calculation of multiple technical indicators (RSI, MACD, Bollinger Bands, etc.)
+- Buy/sell recommendations with detailed justifications
+- Suggested prices for buying and selling
+- Short and medium-term trend analysis
+
+## Requirements
+
 - Python 3.7+
-- pip (gerenciador de pacotes do Python)
+- pip (Python package manager)
 
-## Instalação
+## Installation
 
-1. Clone o repositório:
+1. Clone the repository:
    ```
    git clone https://github.com/seu-usuario/bitcoin-analyzer.git
    cd bitcoin-analyzer
    ```
 
-2. Instale as dependências:
+2. Install dependencies:
    ```
    pip install -r requirements.txt
    ```
 
-## Uso
+## Usage
 
-Execute o script principal:
+Execute the main script:
 
 ```
 python main.py
 ```
 
-O programa irá buscar dados atualizados do Bitcoin, realizar a análise e exibir os resultados no console.
+The program will fetch updated Bitcoin data, perform the analysis, and display the results in the console.
 
-## Estrutura do Projeto
+## Project Structure
 
-- `main.py`: Ponto de entrada do programa
-- `bitcoin_analyzer.py`: Classe principal de análise
-- `data_fetcher.py`: Responsável por buscar dados do mercado
-- `indicators.py`: Cálculos dos indicadores técnicos
-- `requirements.txt`: Lista de dependências do projeto
+- `main.py`: Entry point of the program
+- `bitcoin_analyzer.py`: Main analysis class
+- `data_fetcher.py`: Responsible for fetching market data
+- `indicators.py`: Calculations of technical indicators
+- `requirements.txt`: List of project dependencies
 
-## Contribuindo
+## Contributing
 
-Contribuições são bem-vindas! Por favor, sinta-se à vontade para submeter pull requests ou abrir issues para sugerir melhorias ou reportar bugs.
+Contributions are welcome! Please feel free to submit pull requests or open issues to suggest improvements or report bugs.
 
-## Aviso Legal
+## Disclaimer
 
-Este projeto é apenas para fins educacionais e de pesquisa. Não é uma recomendação de investimento. Sempre faça sua própria pesquisa e considere consultar um profissional financeiro antes de fazer qualquer investimento.
+This project is for educational and research purposes only. It is not investment advice. Always do your own research and consider consulting a financial professional before making any investment.
 
-## Licença
+## License
 
-Este projeto está licenciado sob a [MIT License](https://opensource.org/licenses/MIT).
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
-## Contato
+## Contact
 
-Para dúvidas ou sugestões, por favor abra uma issue no GitHub ou entre em contato através de guilhermemontanari8@gmail.com.
+For questions or suggestions, please open an issue on GitHub or contact through guilhermemontanari8@gmail.com.
