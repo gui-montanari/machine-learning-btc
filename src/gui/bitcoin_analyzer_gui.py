@@ -122,6 +122,8 @@ class BitcoinAnalyzerGUI(QMainWindow):
             self.results_display.append("Analysis failed. Please check the logs for more information.")
 
     def update_price(self):
-        import random
-        price = random.uniform(30000, 40000)
-        self.price_label.setText(f"Current BTC Price: ${price:.2f}")
+        real_time_price = self.analyzer.data_fetcher.fetch_real_time_price()
+        if real_time_price is not None:
+            self.price_label.setText(f"Current BTC Price: ${real_time_price:.2f}")
+        else:
+            self.price_label.setText("Current BTC Price: Error fetching price")
